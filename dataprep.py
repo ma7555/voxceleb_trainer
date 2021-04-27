@@ -55,7 +55,7 @@ def download(args, lines):
 		response = requests.get(url, stream=True, auth=(args.user, args.password))
 		total_size_in_bytes= int(response.headers.get('content-length', 0))
 		block_size = 1024 #1 Kilobyte
-		progress_bar = tqdm(total=total_size_in_bytes, unit='iB', unit_scale=True)
+		progress_bar = tqdm(total=total_size_in_bytes, unit='iB', unit_scale=True, desc='Downloading {}...'.format(outfile))
 		with open(os.path.join(args.save_path, outfile), 'wb') as file:
 			for data in response.iter_content(block_size):
 				progress_bar.update(len(data))
@@ -64,9 +64,9 @@ def download(args, lines):
 		if total_size_in_bytes != 0 and progress_bar.n != total_size_in_bytes:
 			print("ERROR, something went wrong")
 
-		out = subprocess.call('wget %s --user %s --password %s -O %s/%s'%(url,args.user,args.password,args.save_path,outfile), shell=True)
-		if out != 0:
-			raise ValueError('Download failed %s. If download fails repeatedly, use alternate URL on the VoxCeleb website.'%url)
+		# out = subprocess.call('wget %s --user %s --password %s -O %s/%s'%(url,args.user,args.password,args.save_path,outfile), shell=True)
+		# if out != 0:
+		# 	raise ValueError('Download failed %s. If download fails repeatedly, use alternate URL on the VoxCeleb website.'%url)
 
 		## Check MD5
 		md5ck = md5('%s/%s'%(args.save_path, outfile))
