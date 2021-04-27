@@ -6,14 +6,13 @@
 import argparse
 import os
 import subprocess
-import pdb
 import hashlib
-import time
 import glob
 import tarfile
 from zipfile import ZipFile
 from tqdm import tqdm
 from scipy.io import wavfile
+import requests
 
 ## ========== ===========
 ## Parse input arguments
@@ -53,12 +52,24 @@ def download(args, lines):
 		outfile = url.split('/')[-1]
 
 		## Download files
-		out 	= subprocess.call('wget %s --user %s --password %s -O %s/%s'%(url,args.user,args.password,args.save_path,outfile), shell=True)
+		response = requests.get(url, stream=True, auth=(args.user, args.password))
+		total_size_in_bytes= int(response.headers.get('content-length', 0))
+		block_size = 1024 #1 Kilobyte
+		progress_bar = tqdm(total=total_size_in_bytes, unit='iB', unit_scale=True)
+		with open(os.path.join(args.save_path, outfile), 'wb') as file:
+			for data in response.iter_content(block_size):
+				progress_bar.update(len(data))
+				file.write(data)
+		progress_bar.close()
+		if total_size_in_bytes != 0 and progress_bar.n != total_size_in_bytes:
+			print("ERROR, something went wrong")
+
+		out = subprocess.call('wget %s --user %s --password %s -O %s/%s'%(url,args.user,args.password,args.save_path,outfile), shell=True)
 		if out != 0:
 			raise ValueError('Download failed %s. If download fails repeatedly, use alternate URL on the VoxCeleb website.'%url)
 
 		## Check MD5
-		md5ck 	= md5('%s/%s'%(args.save_path,outfile))
+		md5ck = md5('%s/%s'%(args.save_path, outfile))
 		if md5ck == md5gt:
 			print('Checksum successful %s.'%outfile)
 		else:
