@@ -51,6 +51,10 @@ def download(args, lines):
 		md5gt 	= line.split()[1]
 		outfile = url.split('/')[-1]
 
+
+		if outfile in os.listdir('./data'):
+			print('Skipping {}, already downloaded'.format(outfile))
+			continue
 		## Download files
 		response = requests.get(url, stream=True, auth=(args.user, args.password))
 		total_size_in_bytes= int(response.headers.get('content-length', 0))
