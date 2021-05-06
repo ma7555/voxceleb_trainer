@@ -14,6 +14,8 @@ from tqdm import tqdm
 from scipy.io import wavfile
 import requests
 import shutil
+from tqdm.contrib.concurrent import process_map, thread_map
+
 ## ========== ===========
 ## Parse input arguments
 ## ========== ===========
@@ -132,15 +134,25 @@ def part_extract(args, fname, target):
 ## ========== ===========
 def convert(args):
 
-	files 	= glob.glob('%s/voxceleb2/*/*/*.m4a'%args.save_path)
+	def ffmpeg_convert(fname):
+		outfile = fname.replace('.m4a','.wav').replace('voxceleb2', 'voxceleb2_wav')
+		if outfile in out_files:
+			return 0
+		outdir = os.path.dirname(outfile)
+		os.makedirs(outdir, exist_ok=True)
+		out = subprocess.call('ffmpeg -v quiet -y -i %s -ac 1 -vn -acodec pcm_s16le -ar 16000 %s' %(fname, outfile))
+		# if out != 0:
+		# 	raise ValueError('Conversion failed %s'%fname)
+		return out
+
+	files = glob.glob('%s/voxceleb2/*/*/*.m4a'%args.save_path)
 	files.sort()
+	os.makedirs(os.path.join(args.save_path, 'voxceleb2_wav'), exist_ok=True)
+	out_files = glob.glob('%s/voxceleb2_wav/*/*/*.wav'%args.save_path)
 
 	print('Converting files from AAC to WAV')
-	for fname in tqdm(files):
-		outfile = fname.replace('.m4a','.wav')
-		out = subprocess.call('ffmpeg -v quiet -y -i %s -ac 1 -vn -acodec pcm_s16le -ar 16000 %s' %(fname, outfile), shell=True)
-		if out != 0:
-			raise ValueError('Conversion failed %s'%fname)
+	out = thread_map(ffmpeg_convert, files)
+
 
 ## ========== ===========
 ## Split MUSAN for faster random access
@@ -165,7 +177,7 @@ def split_musan(args):
 ## Main script
 ## ========== ===========
 if __name__ == "__main__":
-
+	
 	if not os.path.exists(args.save_path):
 		raise ValueError('Target directory does not exist.')
 
