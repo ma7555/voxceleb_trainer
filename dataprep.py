@@ -66,11 +66,7 @@ def download(args, lines):
 				file.write(data)
 		progress_bar.close()
 		if total_size_in_bytes != 0 and progress_bar.n != total_size_in_bytes:
-			print("ERROR, something went wrong")
-
-		# out = subprocess.call('wget %s --user %s --password %s -O %s/%s'%(url,args.user,args.password,args.save_path,outfile), shell=True)
-		# if out != 0:
-		# 	raise ValueError('Download failed %s. If download fails repeatedly, use alternate URL on the VoxCeleb website.'%url)
+			raise ValueError("ERROR, something went wrong")
 
 		## Check MD5
 		md5ck = md5('%s/%s'%(args.save_path, outfile))
@@ -142,9 +138,9 @@ def convert(args):
 	print('Converting files from AAC to WAV')
 	for fname in tqdm(files):
 		outfile = fname.replace('.m4a','.wav')
-		out = subprocess.call('ffmpeg -y -i %s -ac 1 -vn -acodec pcm_s16le -ar 16000 %s >/dev/null 2>/dev/null' %(fname,outfile), shell=True)
+		out = subprocess.call('ffmpeg -v quiet -y -i %s -ac 1 -vn -acodec pcm_s16le -ar 16000 %s' %(fname, outfile), shell=True)
 		if out != 0:
-			raise ValueError('Conversion failed %s.'%fname)
+			raise ValueError('Conversion failed %s'%fname)
 
 ## ========== ===========
 ## Split MUSAN for faster random access
@@ -186,32 +182,28 @@ if __name__ == "__main__":
 	f.close()
 
 	if args.augment:
-		download(args,augfiles)
-		part_extract(args,os.path.join(args.save_path,'rirs_noises.zip'),['RIRS_NOISES/simulated_rirs/mediumroom','RIRS_NOISES/simulated_rirs/smallroom'])
-		full_extract(args,os.path.join(args.save_path,'musan.tar.gz'))
+		download(args, augfiles)
+		part_extract(args,os.path.join(args.save_path, 'rirs_noises.zip'),['RIRS_NOISES/simulated_rirs/mediumroom', 'RIRS_NOISES/simulated_rirs/smallroom'])
+		full_extract(args,os.path.join(args.save_path, 'musan.tar.gz'))
 		split_musan(args)
 
 	if args.download:
-		download(args,fileparts)
+		download(args, fileparts)
 
 	if args.extract:
 		concatenate(args, files)
 		for file in files:
-			full_extract(args,os.path.join(args.save_path,file.split()[1]))
+			full_extract(args,os.path.join(args.save_path, file.split()[1]))
 
-		source_dirs = [os.path.join(args.save_path, '/dev/aac'), os.path.join(args.save_path, '/wav'), os.path.join(args.save_path, '/aac')]
-		target_dirs = [os.path.join(args.save_path, '/aac'), os.path.join(args.save_path, '/voxceleb1'), os.path.join(args.save_path, '/voxceleb2')]
-		
+		source_dirs = [os.path.join(args.save_path, 'dev/aac'), os.path.join(args.save_path, 'wav')]
+		target_dirs = [os.path.join(args.save_path, 'voxceleb2'), os.path.join(args.save_path, 'voxceleb1')]
+		print(os.path.join(args.save_path, 'dev/aac'))
 		for source_dir, target_dir in zip(source_dirs, target_dirs):
 			file_names = os.listdir(source_dir)
 			for file_name in file_names:
 				shutil.move(os.path.join(source_dir, file_name), target_dir)
 
-		os.remove(os.path.join(args.save_path, '/dev'))
-
-		# out = subprocess.call('mv %s/dev/aac/* %s/aac/ && rm -r %s/dev' %(args.save_path,args.save_path,args.save_path), shell=True)
-		# out = subprocess.call('mv %s/wav %s/voxceleb1' %(args.save_path,args.save_path), shell=True)
-		# out = subprocess.call('mv %s/aac %s/voxceleb2' %(args.save_path,args.save_path), shell=True)
+		os.remove(os.path.join(args.save_path, 'dev'))
 
 	if args.convert:
 		convert(args)
