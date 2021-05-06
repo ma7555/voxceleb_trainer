@@ -13,7 +13,7 @@ from zipfile import ZipFile
 from tqdm import tqdm
 from scipy.io import wavfile
 import requests
-
+import shutil
 ## ========== ===========
 ## Parse input arguments
 ## ========== ===========
@@ -82,24 +82,28 @@ def download(args, lines):
 ## ========== ===========
 ## Concatenate file parts
 ## ========== ===========
-def concatenate(args,lines):
-
+def concatenate(args, lines, delete=False):
 	for line in lines:
 		infile 	= line.split()[0]
 		outfile	= line.split()[1]
 		md5gt 	= line.split()[2]
 
 		## Concatenate files
-		out 	= subprocess.call('cat %s/%s > %s/%s' %(args.save_path,infile,args.save_path,outfile), shell=True)
-
+		parts = glob.glob(os.path.join(args.save_path,infile))
+		with open(os.path.join(args.save_path,outfile),'wb') as wfd:
+			for f in tqdm(parts, desc='Concatenating {}...'.format(outfile)):
+				with open(f,'rb') as fd:
+					shutil.copyfileobj(fd, wfd)
+		
 		## Check MD5
-		md5ck 	= md5('%s/%s'%(args.save_path,outfile))
+		md5ck 	= md5('%s/%s'%(args.save_path, outfile))
 		if md5ck == md5gt:
 			print('Checksum successful %s.'%outfile)
 		else:
 			raise Warning('Checksum failed %s.'%outfile)
-
-		out 	= subprocess.call('rm %s/%s' %(args.save_path,infile), shell=True)
+		
+		if delete:
+			out = [os.remove(part) for part in parts]
 
 ## ========== ===========
 ## Extract zip files
@@ -194,9 +198,20 @@ if __name__ == "__main__":
 		concatenate(args, files)
 		for file in files:
 			full_extract(args,os.path.join(args.save_path,file.split()[1]))
-		out = subprocess.call('mv %s/dev/aac/* %s/aac/ && rm -r %s/dev' %(args.save_path,args.save_path,args.save_path), shell=True)
-		out = subprocess.call('mv %s/wav %s/voxceleb1' %(args.save_path,args.save_path), shell=True)
-		out = subprocess.call('mv %s/aac %s/voxceleb2' %(args.save_path,args.save_path), shell=True)
+
+		source_dirs = [os.path.join(args.save_path, '/dev/aac'), os.path.join(args.save_path, '/wav'), os.path.join(args.save_path, '/aac')]
+		target_dirs = [os.path.join(args.save_path, '/aac'), os.path.join(args.save_path, '/voxceleb1'), os.path.join(args.save_path, '/voxceleb2')]
+		
+		for source_dir, target_dir in zip(source_dirs, target_dirs):
+			file_names = os.listdir(source_dir)
+			for file_name in file_names:
+				shutil.move(os.path.join(source_dir, file_name), target_dir)
+
+		os.remove(os.path.join(args.save_path, '/dev'))
+
+		# out = subprocess.call('mv %s/dev/aac/* %s/aac/ && rm -r %s/dev' %(args.save_path,args.save_path,args.save_path), shell=True)
+		# out = subprocess.call('mv %s/wav %s/voxceleb1' %(args.save_path,args.save_path), shell=True)
+		# out = subprocess.call('mv %s/aac %s/voxceleb2' %(args.save_path,args.save_path), shell=True)
 
 	if args.convert:
 		convert(args)
